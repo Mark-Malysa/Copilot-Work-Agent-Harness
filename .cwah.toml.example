@@ -1,0 +1,16 @@
+scope = "src/ingestion"
+context_dirs = ["src/common", "docs"]
+context_budget_chars = 45000
+approval_mode = "normal"
+iteration_limit = 30
+command_timeout_seconds = 120
+
+[graphify]
+enabled = true
+auto_update = true
+
+[testing]
+command = "pytest"
+
+[exclude]
+patterns = [".env", ".env.*", "*.pem", "*.key"]
