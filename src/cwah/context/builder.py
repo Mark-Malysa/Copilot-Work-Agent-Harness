@@ -7,6 +7,7 @@ from cwah.config import Config
 from cwah.context.explicit_refs import find_explicit_refs
 from cwah.context.files import read_snippet, tracked_files
 from cwah.security.secrets import is_filtered
+from cwah.workspace import normalize_relative
 
 
 @dataclass
@@ -19,7 +20,7 @@ class BuiltContext:
 def build_context(root: Path, task: str, config: Config) -> BuiltContext:
     files = tracked_files(root, config.exclude.patterns)
     refs = find_explicit_refs(task, root)
-    scope = config.scope.rstrip("/\\")
+    scope = normalize_relative(config.scope)
     selected = (
         refs
         + [f for f in files if (scope == "." or f.startswith(scope + "/")) and f not in refs][:30]
@@ -27,12 +28,12 @@ def build_context(root: Path, task: str, config: Config) -> BuiltContext:
     tree = "\n".join(files[:250])
     sections = [
         f"TASK\n{task}",
-        f"REPOSITORY {root}\nSCOPE {config.scope}\nFILES (first 250)\n{tree}",
+        f"WORKSPACE {root}\nSCOPE {scope}\nFILES (first 250)\n{tree}",
     ]
     used = sum(map(len, sections))
     included = []
     omitted = []
-    reserve = 6000
+    reserve = min(6000, config.context_budget_chars // 6)
     for name in selected:
         if is_filtered(name, config.exclude.patterns):
             omitted.append(name + " (filtered)")

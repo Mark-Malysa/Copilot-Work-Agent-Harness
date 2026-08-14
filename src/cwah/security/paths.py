@@ -10,10 +10,12 @@ class PathSecurityError(ValueError):
 class Workspace:
     def __init__(self, root: Path, scope: str = ".", contexts: list[str] | None = None):
         self.root = root.resolve()
-        self.scope = self.resolve(scope)
+        self.scope = self.resolve(_normalize(scope))
         self.contexts = [self.resolve(p) for p in (contexts or [])]
 
     def resolve(self, path: str | Path) -> Path:
+        if isinstance(path, str):
+            path = _normalize(path)
         candidate = Path(path)
         candidate = (
             candidate.resolve() if candidate.is_absolute() else (self.root / candidate).resolve()
@@ -21,7 +23,7 @@ class Workspace:
         try:
             candidate.relative_to(self.root)
         except ValueError as exc:
-            raise PathSecurityError(f"Path escapes repository: {path}") from exc
+            raise PathSecurityError(f"Path escapes workspace: {path}") from exc
         return candidate
 
     def relative(self, path: Path) -> str:
@@ -41,3 +43,7 @@ def _within(path: Path, base: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _normalize(path: str) -> str:
+    return path.replace("\\", "/")

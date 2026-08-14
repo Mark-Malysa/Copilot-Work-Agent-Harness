@@ -32,6 +32,9 @@ ignore = ["B008", "E501"]
 python_version = "3.11"
 strict = true
 packages = ["cwah"]
+[[tool.mypy.overrides]]
+module = "pyperclip"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
