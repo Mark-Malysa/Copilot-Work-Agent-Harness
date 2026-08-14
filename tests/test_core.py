@@ -11,6 +11,7 @@ from cwah.agent.session import SessionStore
 from cwah.config import Config
 from cwah.context.builder import build_context
 from cwah.context.explicit_refs import find_explicit_refs
+from cwah.context.files import workspace_files
 from cwah.context.search import search
 from cwah.graph.graphify import GraphifyAdapter, GraphResult
 from cwah.protocol.parser import ProtocolError, parse_response, repair_prompt
@@ -19,6 +20,7 @@ from cwah.security.secrets import is_filtered
 from cwah.tools.edit_file import EditError, apply_search_replace, create_file
 from cwah.tools.run_command import UnsafeCommand, run_command, validate_command
 from cwah.transport.clipboard import MemoryClipboard
+from cwah.workspace import resolve_workspace
 
 
 def resp(json: str, payload: str = "") -> str:
@@ -48,6 +50,51 @@ def test_scope_and_context(tmp_path: Path):
         and not w.in_write_scope("docs/a.md")
         and w.in_write_scope("src/a.py")
     )
+    assert Workspace(tmp_path, r"src\nested").scope == (tmp_path / "src/nested").resolve()
+
+
+def test_nested_workspace_does_not_expose_git_siblings(tmp_path: Path):
+    gitrepo(tmp_path)
+    workspace = tmp_path / "monday_bde"
+    for name in ["docs/design.md", "src/pipeline.py", "tests/test_pipeline.py"]:
+        path = workspace / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(name, "utf-8")
+    for name in ["unrelated_one/random.py", "unrelated_two/random2.py"]:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True)
+        path.write_text(name, "utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+
+    info = resolve_workspace(Path("."), r"src\pipeline", invocation=workspace)
+    tracked, untracked = workspace_files(workspace)
+    visible = tracked + untracked
+    assert info.root == workspace.resolve()
+    assert info.git and info.git.root == tmp_path.resolve()
+    assert info.scope == "src/pipeline"
+    assert set(visible) == {"docs/design.md", "src/pipeline.py", "tests/test_pipeline.py"}
+    assert not any("unrelated" in name for name in visible)
+
+
+def test_linked_worktree_git_file_and_common_dir(tmp_path: Path):
+    main = tmp_path / "main"
+    linked = tmp_path / "linked"
+    main.mkdir()
+    gitrepo(main)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=main, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=main, check=True)
+    (main / "tracked.txt").write_text("main", "utf-8")
+    subprocess.run(["git", "add", "."], cwd=main, check=True)
+    subprocess.run(["git", "commit", "-qm", "initial"], cwd=main, check=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-qb", "linked-test", str(linked)], cwd=main, check=True
+    )
+
+    info = resolve_workspace(linked, invocation=tmp_path)
+    assert (linked / ".git").is_file()
+    assert info.git and info.git.root == linked.resolve()
+    assert info.git.common_dir == (main / ".git").resolve()
+    assert info.git.branch == "linked-test"
 
 
 def test_symlink_escape(tmp_path: Path):

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from cwah.agent.loop import run_scripted
 from cwah.agent.session import SessionStore
-from cwah.config import Config
+from cwah.config import Config, TestingConfig
 from cwah.transport.clipboard import MemoryClipboard
 
 
@@ -42,7 +42,7 @@ def run_demo(base: Path | None = None) -> tuple[bool, Path]:
     return run_scripted(
         s,
         store,
-        Config(testing={"command": f'"{__import__("sys").executable}" -m pytest'}),
+        Config(testing=TestingConfig(command=f'"{__import__("sys").executable}" -m pytest')),
         MemoryClipboard(),
         responses,
     ), root

@@ -11,6 +11,10 @@ class Session(BaseModel):
     id: str
     task: str
     repo_root: str
+    invocation_directory: str = ""
+    workspace_root: str = ""
+    git_worktree_root: str = ""
+    git_common_dir: str = ""
     scope: str = "."
     context_dirs: list[str] = Field(default_factory=list)
     relevant_files: list[str] = Field(default_factory=list)
@@ -31,8 +35,11 @@ class SessionStore:
         self.directory = root / ".cwah" / "sessions"
 
     def create(self, **kwargs: object) -> Session:
-        session = Session(
-            id=datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(2), **kwargs
+        session = Session.model_validate(
+            {
+                "id": datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + secrets.token_hex(2),
+                **kwargs,
+            }
         )
         self.save(session)
         return session

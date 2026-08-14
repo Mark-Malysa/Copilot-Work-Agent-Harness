@@ -46,9 +46,9 @@ def execute(
             return {
                 "id": action.id,
                 "ok": True,
-                "output": git(root, "status", "--short")
+                "output": git(root, "status", "--short", "--", ".")
                 if t == "git_status"
-                else git(root, "diff"),
+                else git(root, "diff", "--", "."),
             }
         if t.startswith("graph_"):
             g = GraphifyAdapter(root)
